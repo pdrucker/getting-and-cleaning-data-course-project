@@ -1,70 +1,34 @@
-library(plyr)
+library(dplyr)
 
-# Step 1
-# Merge the training and test sets to create one data set
-###############################################################################
+# 1. Merges the training and the test sets to create one data set
+trainSet <- read.table("train\\X_train.txt")
+testSet <- read.table("test\\X_test.txt")
+mergeSet <- rbind(trainSet,testSet)
 
-x_train <- read.table("train/X_train.txt")
-y_train <- read.table("train/y_train.txt")
-subject_train <- read.table("train/subject_train.txt")
+trainLabel <- read.table("train\\y_train.txt")
+testLabel <- read.table("test\\y_test.txt")
+mergeLabel <- rbind(trainLabel,testLabel)
 
-x_test <- read.table("test/X_test.txt")
-y_test <- read.table("test/y_test.txt")
-subject_test <- read.table("test/subject_test.txt")
+subjectTrain <- read.table("train\\subject_train.txt")
+subjectTest <-  read.table("test\\subject_test.txt")
+mergeSubject <- rbind(subjectTrain,subjectTest)
 
-# create 'x' data set
-x_data <- rbind(x_train, x_test)
+# 2. Extracts only the measurements on the mean and standard deviation for each measurement
+features <- read.table("features.txt") 
+ind <- grep("-mean\\(\\)|-std\\(\\)", features$V2)
+mergeSet <- mergeSet[,ind]
 
-# create 'y' data set
-y_data <- rbind(y_train, y_test)
+# 3. Uses descriptive activity names to name the activities in the data set
+activityLabels <- read.table("activity_labels.txt")
+mergeActvity <- factor(mergeLabel$V1,label=activityLabels$V2)
 
-# create 'subject' data set
-subject_data <- rbind(subject_train, subject_test)
+# 4. Appropriately labels the data set with descriptive variable names
+names(mergeSet) <- as.character(features$V2[ind])
 
-# Step 2
-# Extract only the measurements on the mean and standard deviation for each measurement
-###############################################################################
+# 5. From the data set in step 4, create a second, independent tidy data set
+# with the average of each variable for each activity and each subject
+avgDataset <- aggregate(x=mergeSet, by=list(mergeSubject$V1,mergeActvity), FUN="mean")
+avgDataset <- rename(avgDataset, Subject=Group.1, Activity=Group.2)
 
-features <- read.table("features.txt")
-
-# get only columns with mean() or std() in their names
-mean_and_std_features <- grep("-(mean|std)\\(\\)", features[, 2])
-
-# subset the desired columns
-x_data <- x_data[, mean_and_std_features]
-
-# correct the column names
-names(x_data) <- features[mean_and_std_features, 2]
-
-# Step 3
-# Use descriptive activity names to name the activities in the data set
-###############################################################################
-
-activities <- read.table("activity_labels.txt")
-
-# update values with correct activity names
-y_data[, 1] <- activities[y_data[, 1], 2]
-
-# correct column name
-names(y_data) <- "activity"
-
-# Step 4
-# Appropriately label the data set with descriptive variable names
-###############################################################################
-
-# correct column name
-names(subject_data) <- "subject"
-
-# bind all the data in a single data set
-all_data <- cbind(x_data, y_data, subject_data)
-
-# Step 5
-# Create a second, independent tidy data set with the average of each variable
-# for each activity and each subject
-###############################################################################
-
-# 66 <- 68 columns but last two (activity & subject)
-averages_data <- ddply(all_data, .(subject, activity), function(x) colMeans(x[, 1:66]))
-
-write.table(averages_data, "averages_data.txt", row.name=FALSE)
-
+# save the tidy data set "avgDataset" to txt
+write.table(avgDataset, file = "tidyDataset.txt", row.name=FALSE) 
